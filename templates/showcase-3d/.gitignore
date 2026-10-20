@@ -1,0 +1,11 @@
+audio/vo/
+audio/music/
+audio/timeline.json
+audio/words.json
+audio/transitions.json
+audio/viz.json
+audio/*.wav
+assets/
+renders/
+index.html
+.hyperframes/

@@ -7,3 +7,10 @@ __pycache__/
 *.wav
 library/
 dist/
+.venvs/
+.hyperframes/
+renders/
+*.mp4
+*.mov
+*.gif
+fonts/

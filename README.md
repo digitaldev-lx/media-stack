@@ -1,10 +1,23 @@
 # media-stack
 
-**EN (short):** self-hosted video/presentation generation stack behind a single signed HTTP API (`POST /v1/jobs` -> 202). HyperFrames (HTML to MP4) for rendering, ElevenLabs Eleven v3 via fal.ai for voice with automatic Piper (local, free) fallback, Pexels stock photos/videos, procedural music and SFX, Whisper captions. Docker Compose, amd64, no GPU. MIT-licensed glue code; third-party components keep their licenses (see below). Docs are in Portuguese (PT-PT).
+**EN (short):** self-hosted video/presentation generation stack behind a single signed HTTP API (`POST /v1/jobs` -> 202). HyperFrames (HTML to MP4) for rendering, ElevenLabs Eleven v3 via fal.ai for voice with automatic Piper (local, free) fallback, Pexels stock photos/videos, procedural music and SFX, Whisper captions. Docker Compose, amd64, no GPU. MIT-licensed glue code; third-party components keep their licenses (see below). Docs are in Portuguese (PT-PT). Plus a local studio toolkit: **hf3d**, a deterministic three.js kit for HyperFrames (neon, reflections, glass, water, GPU particles, GLSL scene transitions), and **local audio** (Kokoro voice, Stable Audio Open music, numpy SFX, whisper.cpp word timing, -14 LUFS mix and QA).
 
 ---
 
 Geracao de **videos** (Reels/Shorts 9:16, 16:9, quadrado) e **apresentacoes** a partir de um pedido JSON, atras de uma API unica assinada. Foi desenhada para ser chamada por uma app (ex. uma app Laravel com filas) que cria os pedidos, recebe o MP4 e o publica; esta stack so **produz** o media.
+
+## Duas formas de usar
+
+| | API (Docker Compose) | Estúdio local (3D) |
+|---|---|---|
+| Para | vídeos a partir de um pedido JSON, chamados por uma app | vídeos à medida com cenas 3D a sério |
+| Render | `render-hyperframes` (HTML + GSAP) | HyperFrames + kit [`packages/three-kit`](packages/three-kit/README.md) (three.js) |
+| Voz | fal.ai Eleven v3, com fallback Piper | Kokoro-82M local ([`local-audio`](local-audio/README.md)) |
+| Música / SFX | procedural (numpy) | Stable Audio Open local + SFX numpy |
+| Stock | Pexels | nenhum: tudo gerado em código |
+| Começar por | secção "Instalacao rapida" | [`templates/showcase-3d`](templates/showcase-3d/README.md) e [`docs/WORKFLOW-3D.md`](docs/WORKFLOW-3D.md) |
+
+![Template 3D: partículas, vidro e neon, água](docs/img/showcase-3d-template.jpg)
 
 ## Arquitectura
 
@@ -121,6 +134,27 @@ Cada cena pode ter `stock: {query, type}`. O gateway pesquisa na API Pexels, fil
 ## Musica e SFX
 Gerados localmente por sintese procedural (numpy): 5 estilos de musica (`calm`, `corporate`, `tech`, `dark`, `upbeat`, escolhidos por palavra-chave do `prompt`) e 7 efeitos. Zero custo, sem modelos, CPU. Qualidade de "cama sonora", nao de faixa composta.
 
+## Estúdio local: kit 3D e áudio local
+
+Fora do Compose, numa máquina de trabalho (testado em macOS Apple Silicon):
+
+- **`packages/three-kit` (hf3d):**
+  - um `Stage` WebGL único com bloom selectivo, ACES, aberração cromática e grain;
+  - 12 transições GLSL entre cenas;
+  - neon (tubos e texto troika), chão espelhado, vidro físico com transmissão, iridescência e dispersão;
+  - água (addon Water e ondas com gotas), partículas GPU, feixes de luz volumétricos, gráficos 3D e câmaras por poses no tempo.
+  - Tudo é função do tempo da timeline. Versões exactas em `package-lock.json`.
+  - `npm ci && npm run build`.
+- **Porque um Stage único:** um `<canvas>` WebGL dentro de uma cena das transições shader do HyperFrames sai preto na captura. Com as transições feitas dentro do GL não há captura de DOM, e o HTML por cima (HUD, legendas) não desaparece. A alternativa é pré-renderizar o 3D para MP4. Provas em `packages/three-kit/docs/`.
+- **`local-audio`:**
+  - voz Kokoro-82M (Apache-2.0) com léxico de pronúncias;
+  - música Stable Audio Open 1.0 (Community License; **não** o MusicGen, que é CC-BY-NC);
+  - SFX numpy, BPM e timeline no beat, timestamps de palavras com whisper.cpp;
+  - mistura com ducking a -14 LUFS e `qa.sh`.
+- **`templates/showcase-3d`:** pipeline completo `run.sh` (guião → voz → música → timeline → palavras → mistura → composição → render → QA).
+
+Instalação: [INSTALAR.md, secção 11](INSTALAR.md#11-opcional-estudio-local-3d-e-audio-local).
+
 ## Seguranca
 - A API **nunca e publica**: `BIND_IP` = IP de VPN/rede privada ou `127.0.0.1`; sem Traefik/porta publica. Firewall deny-by-default.
 - Todos os pedidos assinados com HMAC (janela de 5 min); `/health` e a unica rota aberta.
@@ -147,4 +181,7 @@ Codigo deste repositorio: **MIT** (ver `LICENSE`). Componentes de terceiros mant
 - **FFmpeg**: LGPL/GPL conforme a build do pacote Debian; **Chromium**: BSD e outras.
 - **Pexels**: [Pexels License](https://www.pexels.com/license/) e termos da API.
 - **fal.ai / ElevenLabs**: servicos pagos sujeitos aos termos e politicas de uso aceitavel de cada um (incluindo regras sobre voz sintetica e consentimento).
+- **three.js** (MIT), **postprocessing** (Zlib), **troika-three-text** (MIT), **three-custom-shader-material** (MIT), **simplex-noise** (MIT). Simplex GLSL em `packages/three-kit/src/noise.js`: Ashima Arts / Stefan Gustavson (MIT).
+- **Kokoro-82M**: Apache-2.0. **Stable Audio Open 1.0**: Stability AI Community License (uso comercial gratuito abaixo de 1 M USD de receita anual; confirmar os termos). **whisper.cpp** e pesos: MIT. **MusicGen** (CC-BY-NC) não é usado.
+- Fontes **Inter** e **JetBrains Mono**: SIL OFL 1.1, descarregadas por `packages/three-kit/fetch-fonts.sh` (não versionadas).
 - **AI Act (UE) art. 50.o**: conteudo sintetico deve ser rotulado; o selo no video e um mecanismo, nao um parecer juridico.

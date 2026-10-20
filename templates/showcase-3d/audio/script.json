@@ -1,0 +1,25 @@
+{
+  "voice": "am_michael",
+  "lang": "a",
+  "speed": 0.97,
+  "drop_scene": "outro",
+  "brand": { "name": "hf3d", "by": "Built with HyperFrames" },
+  "lexicon": {
+    "WebGL.": "Web G L.",
+    "HyperFrames": "Hyper Frames",
+    "Three.js": "Three J S"
+  },
+  "scenes": [
+    { "name": "hook", "lines": ["Everything you are watching is code.", "No camera. No editing timeline. Just HTML and WebGL."] },
+    { "name": "stack", "lines": ["Glass, neon and light.", "Every frame is a function of time."] },
+    { "name": "outro", "lines": ["Rendered by HyperFrames."] }
+  ],
+  "transitions": [
+    { "type": "warp", "d": 0.9 },
+    { "type": "flash", "d": 0.5 }
+  ],
+  "music": [
+    { "file": "segA.wav", "seconds": 47, "seed": 21, "prompt": "epic cinematic hybrid orchestral electronic trailer music, 120 BPM, D minor, pulsing synth bass, taiko drums, soaring strings, steady build of tension, instrumental" },
+    { "file": "segB.wav", "seconds": 30, "seed": 33, "prompt": "epic cinematic electronic trailer climax, 120 BPM, D minor, huge drums, brass hits, supersaw synths, triumphant and wide, instrumental" }
+  ]
+}

@@ -80,3 +80,30 @@ docker compose restart gateway
 
 ## 10. Se algo falhar
 Pare, copie os outputs reais (comando + erro, sem segredos) e reporte ao responsavel pela instalacao. **Nao**: mudar a arquitectura, desactivar a verificacao HMAC, abrir portas ou publicar a API na Internet para "fazer funcionar".
+
+## 11. (Opcional) Estudio local: 3D e audio local
+Nao faz parte da VM da API. E para a maquina onde se fazem videos a medida (testado em macOS Apple Silicon; Linux funciona em CPU/CUDA, mais lento).
+
+Requisitos: Node 22+, Python 3.11 e 3.12, ffmpeg, whisper.cpp (`whisper-cli`), cerca de 6 GB livres para modelos.
+```bash
+# kit 3D (versoes exactas pelo lock)
+cd packages/three-kit && npm ci && npm run build && npm run fonts && npm run demo   # renderiza examples/demo/demo.mp4 (8 s)
+cd ../..
+# venvs de audio (ver local-audio/README.md)
+python3.12 -m venv .venvs/kokoro && .venvs/kokoro/bin/pip install -r local-audio/requirements-kokoro.txt
+.venvs/kokoro/bin/pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+python3.11 -m venv .venvs/audio && .venvs/audio/bin/pip install -r local-audio/requirements-audio.txt
+# Stable Audio Open e gated: aceitar a licenca no Hugging Face e fazer login com um token read
+.venvs/audio/bin/huggingface-cli login
+# whisper.cpp: modelo ggml-large-v3-turbo-q5_0.bin (~550 MB) de huggingface.co/ggerganov/whisper.cpp
+export WHISPER_MODEL=/caminho/ggml-large-v3-turbo-q5_0.bin
+# exemplo completo
+cd templates/showcase-3d && PY_KOKORO=$PWD/../../.venvs/kokoro/bin/python PY_AUDIO=$PWD/../../.venvs/audio/bin/python ./run.sh
+```
+| Modelo | Tamanho | Licenca |
+|---|---|---|
+| Kokoro-82M | ~330 MB | Apache-2.0 |
+| Stable Audio Open 1.0 | ~4,5 GB | Stability AI Community License |
+| whisper.cpp large-v3-turbo q5_0 | ~550 MB | MIT |
+
+Os modelos ficam em `~/.cache/huggingface` e no caminho que escolher para o whisper. Nunca dentro do repositorio.
