@@ -1,0 +1,24 @@
+{
+  "name": "hyperframes-three-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kit 3D (three.js + postprocessing) para composicoes HyperFrames, guiado pelo tempo da timeline.",
+  "scripts": {
+    "build": "node build.mjs",
+    "fonts": "sh fetch-fonts.sh",
+    "demo:prepare": "mkdir -p examples/demo/assets && cp dist/hf3d.mjs examples/demo/assets/ && cp fonts/*.woff examples/demo/assets/",
+    "demo": "npm run demo:prepare && cd examples/demo && npx --yes hyperframes@0.8.181 render --quality draft -o demo.mp4"
+  },
+  "dependencies": {
+    "postprocessing": "6.39.5",
+    "simplex-noise": "4.0.3",
+    "three": "0.186.1",
+    "three-custom-shader-material": "6.4.0",
+    "troika-three-text": "0.53.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "license": "MIT"
+}
