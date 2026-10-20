@@ -1,0 +1,10 @@
+{
+  "format": "vertical",
+  "voice": { "provider": "local" },
+  "music": { "prompt": "calm corporate", "volume": 0.28 },
+  "captions": "words",
+  "scenes": [
+    { "title": "Teste sem chaves", "narration": "Este teste usa a voz local e fundos gerados." },
+    { "narration": "Serve para validar a instalação sem gastar créditos." }
+  ]
+}

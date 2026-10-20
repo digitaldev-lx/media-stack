@@ -1,0 +1,15 @@
+{
+  "format": "vertical",
+  "voice": { "provider": "fal" },
+  "music": { "prompt": "calm corporate", "volume": 0.28 },
+  "captions": "words",
+  "scenes": [
+    { "title": "O custo escondido",
+      "narration": "Esta folha de cálculo custa quatro mil euros por ano.",
+      "stock": { "query": "office desk spreadsheet", "type": "video" } },
+    { "narration": "Ninguém a vê na contabilidade.",
+      "stock": { "query": "accountant calculator", "type": "photo" } },
+    { "narration": "Começa por medir onde se perde o tempo.",
+      "stock": { "query": "team meeting office", "type": "video" } }
+  ]
+}

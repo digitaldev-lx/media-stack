@@ -1,0 +1,8 @@
+{
+  "format": "horizontal",
+  "voice": { "provider": "local" },
+  "music": { "prompt": "calm", "volume": 0.2 },
+  "scenes": [
+    { "title": "Mapa de processos", "bullets": ["Observar", "Medir", "Resolver"], "narration": "Três passos para arrumar a operação." }
+  ]
+}

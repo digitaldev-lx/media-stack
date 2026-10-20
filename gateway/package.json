@@ -1,0 +1,2 @@
+{ "name": "media-gateway", "version": "1.0.0", "private": true, "type": "commonjs",
+  "engines": { "node": ">=22" }, "dependencies": { "express": "4.21.2" } }

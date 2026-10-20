@@ -1,0 +1,108 @@
+# Stack de media FREE (self-hosted, custo zero por pedido). amd64 em producao; arm64 funciona para desenvolvimento.
+# Segredos: so por nome em .env (ver .env.example). Nada de valores aqui.
+name: media-stack
+
+x-base: &base
+  restart: unless-stopped
+  networks: [media_net]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  init: true
+  logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
+
+services:
+  gateway:
+    <<: *base
+    build: ./gateway
+    image: media-gateway:1
+    environment:
+      MEDIA_HMAC_SECRET: ${MEDIA_HMAC_SECRET:?definir no .env}
+      CALLBACK_ALLOWED_HOSTS: ${CALLBACK_ALLOWED_HOSTS:-}
+      ASSET_ALLOWED_HOSTS: ${ASSET_ALLOWED_HOSTS:-}
+      FAL_KEY: ${FAL_KEY:-}                 # sem ela a voz cai no Piper local (fallback)
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      TTS_PROVIDER: ${TTS_PROVIDER:-fal}
+      TTS_FALLBACK: ${TTS_FALLBACK:-local}
+      TTS_VOICE: ${TTS_VOICE:-pt_PT-tugao-medium}
+      FAL_TTS_MODEL: ${FAL_TTS_MODEL:-fal-ai/elevenlabs/tts/eleven-v3}
+      FAL_VOICE: ${FAL_VOICE:-}
+      FAL_LANGUAGE_CODE: ${FAL_LANGUAGE_CODE:-pt}
+      FAL_STABILITY: ${FAL_STABILITY:-}
+      FAL_TTS_USD_PER_1K_CHARS: ${FAL_TTS_USD_PER_1K_CHARS:-0.10}
+      FAL_MAX_USD_PER_JOB: ${FAL_MAX_USD_PER_JOB:-0.5}
+      FAL_MAX_USD_PER_DAY: ${FAL_MAX_USD_PER_DAY:-5}
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-1}
+      JOB_TTL_HOURS: ${JOB_TTL_HOURS:-48}
+    volumes:
+      - work:/work
+      - state:/state
+      - ${LIBRARY_DIR:-./library}:/library:ro     # musica/footage com manifest.json (commercial_ok:true)
+    ports: ["${BIND_IP:-127.0.0.1}:8080:8080"]   # so no IP privado/VPN; nunca 0.0.0.0
+    depends_on: [render-hyperframes, tts-local, music-gen, sfx-gen, mixer]
+    mem_limit: 512m
+
+  render-hyperframes:
+    <<: *base
+    build: ./render-hyperframes
+    image: media-render-hyperframes:1
+    shm_size: 2gb
+    cpus: ${RENDER_CPUS:-4}
+    mem_limit: ${RENDER_MEM:-6g}
+    volumes: [ "work:/work" ]
+
+  tts-local:
+    <<: *base
+    build: ./tts-local
+    image: media-tts-local:1
+    cpus: 2
+    mem_limit: 2g
+    volumes: [ "work:/work", "models:/models:ro" ]
+
+  music-gen:
+    <<: *base
+    build: { context: ./audiogen, dockerfile: Dockerfile.music }
+    image: media-music-gen:1
+    cpus: 2
+    mem_limit: 2g
+    volumes: [ "work:/work" ]
+
+  sfx-gen:
+    <<: *base
+    build: { context: ./audiogen, dockerfile: Dockerfile.sfx }
+    image: media-sfx-gen:1
+    cpus: 1
+    mem_limit: 1g
+    volumes: [ "work:/work" ]
+
+  stt-whisper:
+    <<: *base
+    build: ./stt-whisper
+    image: media-stt-whisper:1
+    cpus: 4
+    mem_limit: 3g
+    environment: { WHISPER_MODEL: "${WHISPER_MODEL:-base}" }
+    volumes: [ "work:/work", "models:/models:ro" ]
+
+  mixer:
+    <<: *base
+    build: ./mixer
+    image: media-mixer:1
+    cpus: 2
+    mem_limit: 1g
+    volumes: [ "work:/work" ]
+
+  # One-shot: docker compose --profile tools run --rm models piper_pt whisper_base
+  models:
+    build: ./models
+    image: media-models:1
+    profiles: ["tools"]
+    networks: [media_net]
+    volumes: [ "models:/models" ]
+
+networks:
+  media_net: {}
+
+volumes:
+  work: {}
+  state: {}
+  models: {}
