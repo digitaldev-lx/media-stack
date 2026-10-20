@@ -1,0 +1,11 @@
+# venv Python 3.11 para Stable Audio Open + mistura/SFX/beats/QA. Versoes testadas.
+# Fixar huggingface_hub < 1.0 e diffusers < 0.36: o hub 1.x parte o transformers 4.x.
+torch==2.14.1
+diffusers==0.35.2
+transformers==4.57.6
+huggingface_hub==0.36.2
+torchsde==0.2.6
+soundfile==0.14.0
+numpy==2.4.6
+scipy==1.17.1
+pillow==12.3.0
