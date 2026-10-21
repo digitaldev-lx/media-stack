@@ -18,7 +18,7 @@ def _lp(x, k):  # lowpass por media exponencial (k em amostras)
 
 def _env(n, a, r):
     e = np.ones(n)
-    na, nr = int(a * SR), int(r * SR)
+    na, nr = min(n, int(a * SR)), min(n, int(r * SR))  # o ultimo compasso pode ser mais curto do que o ataque
     e[:na] = np.linspace(0, 1, max(na, 1))
     e[-nr:] = np.minimum(e[-nr:], np.linspace(1, 0, max(nr, 1)))
     return e
