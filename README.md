@@ -39,7 +39,7 @@ Geracao de **videos** (Reels/Shorts 9:16, 16:9, quadrado) e **apresentacoes** a 
 | Servico | Funcao |
 |---|---|
 | `gateway` | API, HMAC, idempotencia, estado em ficheiros (`/state`), pipeline, callback assinado, QA, tectos de custo da voz |
-| `render-hyperframes` | HTML + GSAP -> MP4 (HyperFrames 0.8.97, Chromium, FFmpeg) |
+| `render-hyperframes` | HTML + GSAP -> MP4 (HyperFrames 0.8.138, Chromium, FFmpeg); inclui o kit 3D `hf3d` (three.js) e WebGL por SwiftShader para o kind `video3d` |
 | `tts-local` | Piper `pt_PT-tugao-medium` (fallback gratuito, CPU) |
 | `music-gen`, `sfx-gen` | musica de fundo e efeitos procedurais (numpy, CPU, sem modelos) |
 | `stt-whisper` | legendas palavra-a-palavra (faster-whisper `base`, CPU) |
@@ -121,7 +121,47 @@ curl -X POST http://127.0.0.1:8080/v1/jobs -H 'content-type: application/json' \
   ]
 }
 ```
-`kind`: `video`, `presentation`, `tts`, `music`, `sfx`. SFX: `whoosh, click, pop, riser, impact, check, glitch` (omissao: whoosh em cada mudanca de cena; `false` desliga). Mais exemplos em `scripts/`.
+`kind`: `video`, `presentation`, `video3d` (ver abaixo), `tts`, `music`, `sfx`. SFX: `whoosh, click, pop, riser, impact, check, glitch` (omissao: whoosh em cada mudanca de cena; `false` desliga). Mais exemplos em `scripts/`.
+
+## Video 3D (`kind: "video3d"`)
+Cenas 3D a sério (neon, vidro, chão espelhado, água, partículas, transições GLSL) renderizadas pelo kit [`packages/three-kit`](packages/three-kit/README.md) **dentro** do `render-hyperframes`. Não há CDN nem GPU: o WebGL corre por SwiftShader. A voz, as legendas por palavra, a música, os SFX, a mistura, os tectos de custo da voz e o QA são os mesmos do `video`.
+
+**Porque um kind novo e não uma flag:**
+- A composição é outra: um canvas WebGL único com presets 3D, em vez de cenas HTML com stock.
+- Tem limites próprios, porque o render é 10 a 30 vezes mais caro em CPU.
+- O cliente **não envia código**. Escolhe presets fixos (`gateway/three/presets.js`) e textos, validados e cortados em `gateway/lib/compose3d.js`. Assim não se abre execução de JavaScript arbitrário no Chromium do worker.
+
+```json
+{ "kind": "video3d", "spec": {
+  "format": "horizontal", "voice": { "provider": "local" }, "music": { "prompt": "tech" }, "captions": "words",
+  "transitions": ["warp", "flash"],
+  "scenes": [
+    { "preset": "particles-text", "text": "</>", "title": "Tudo isto e codigo", "narration": "Tudo o que esta a ver foi gerado em codigo." },
+    { "preset": "glass-stack", "layers": ["Laravel", "Filas", "Render"], "narration": "Camada a camada, sem camara." },
+    { "preset": "neon-logo", "text": "media-stack", "subtitle": "render 3D na API", "narration": "Renderizado pela API." } ] } }
+```
+
+| Campo | Valores |
+|---|---|
+| `scenes[].preset` | `particles-text` (`text` ≤ 24), `glass-stack` (`layers` ≤ 6 × 28), `orbit-cards` (`layers`), `neon-logo` (`text`, `subtitle` ≤ 48). Por omissão: a 1.ª é `particles-text`, a última é `neon-logo` e as do meio são `glass-stack` |
+| `scenes[].title`, `narration`, `color` (`#rrggbb`), `duration` | título HTML por cima do 3D, voz, cor do neon e duração mínima |
+| `transitions[]` | `fade glitch zoom iris warp whip flash ripple pixel burn swirl slices` (uma por mudança de cena; por omissão roda) |
+| `format` | `horizontal` (omissão), `vertical`, `square` |
+
+**Limites** (`.env`):
+- `VIDEO3D_MAX_SECONDS=45`: um pedido mais longo falha logo depois da voz, antes do render.
+- `VIDEO3D_MAX_SCENES=6`.
+- `VIDEO3D_RENDER_TIMEOUT_S=2400`: tecto que o pedido não pode subir.
+- `RENDER_3D_WORKERS=2`: Chromiums por render.
+- `RENDER_3D_MAX_ACTIVE=1`: um render 3D de cada vez. Os outros esperam a vez (`step: "render (a espera do worker 3D)"`) até 30 minutos.
+- O `RENDER_MEM` / `RENDER_CPUS` do contentor continua a ser o tecto duro.
+
+**Tempos medidos.** Demo do kit de 8 s a 1920x1080, 30 fps, com 4 vCPU e 3 GB de limite no contentor, em Docker Desktop arm64 partilhado com outros serviços:
+- 533 s com 1 worker;
+- 355 s com 2 workers;
+- isto dá cerca de 45 a 65 s de render por segundo de vídeo.
+
+Pela API, de ponta a ponta (voz Piper, STT, música, mistura, render 3D e QA), o `scripts/example-video3d.json` (10,7 s) levou 4 min 42 s na mesma máquina. Numa VM dedicada amd64 com 8 a 16 vCPU deve ser mais rápido, mas meça antes de prometer prazos. Pedido de teste: `scripts/smoke.sh` com `scripts/example-video3d.json` (ver `INSTALAR.md`). O `post-job.sh` aceita o kind como 2.º argumento: `scripts/post-job.sh scripts/example-video3d.json video3d`.
 
 ## Voz: fal.ai Eleven v3 PT-PT + fallback Piper
 - Por omissao `TTS_PROVIDER=fal` chama `fal-ai/elevenlabs/tts/eleven-v3` com `language_code=pt` e a voz `FAL_VOICE`. **O v3 em portugues pode tender para sotaque brasileiro**: escolha uma voz PT-PT da biblioteca ElevenLabs e valide de ouvido.
@@ -138,7 +178,7 @@ Gerados localmente por sintese procedural (numpy): 5 estilos de musica (`calm`, 
 
 Fora do Compose, numa máquina de trabalho (testado em macOS Apple Silicon):
 
-- **`packages/three-kit` (hf3d):**
+- **`packages/three-kit` (hf3d):** é o mesmo kit que o `render-hyperframes` usa no `kind: video3d` da API.
   - um `Stage` WebGL único com bloom selectivo, ACES, aberração cromática e grain;
   - 12 transições GLSL entre cenas;
   - neon (tubos e texto troika), chão espelhado, vidro físico com transmissão, iridescência e dispersão;
@@ -161,6 +201,14 @@ Instalação: [INSTALAR.md, secção 11](INSTALAR.md#11-opcional-estudio-local-3
 - Callbacks so para hosts em `CALLBACK_ALLOWED_HOSTS`; downloads so de hosts em `ASSET_ALLOWED_HOSTS` (mitiga SSRF).
 - Contentores sem root, `no-new-privileges`, `cap_drop: ALL`; segredos so por `.env` (chmod 600), nunca em imagens nem logs.
 - Selo "Voz e musica geradas por IA" queimado no video por omissao (`ai_badge: false` desliga; `ai_badge_text` muda o texto).
+
+## Regressao do render (antes de subir o HyperFrames)
+```bash
+node tests/render/make-cases.js /tmp/rg --3d            # um caso por layout do compose.js + um video3d
+docker build -f render-hyperframes/Dockerfile -t media-render-hyperframes:teste .
+tests/render/run.sh media-render-hyperframes:teste /tmp/rg   # duracao, streams e frames sem preto, por caso
+cd gateway && npm test                                  # validacao/composicao do video3d
+```
 
 ## Troubleshooting
 | Sintoma | Causa provavel / accao |
