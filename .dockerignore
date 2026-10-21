@@ -1,0 +1,16 @@
+.git
+**/node_modules
+**/dist
+**/fonts
+**/.hyperframes
+**/renders
+**/*.mp4
+**/*.wav
+.venvs
+.env
+.env.*
+library
+templates/*/assets
+templates/*/audio/vo
+templates/*/audio/music
+packages/three-kit/examples/demo/assets

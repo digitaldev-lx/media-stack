@@ -7,6 +7,14 @@ const policy = require('./policy');
 const pexels = require('./pexels');
 const spend = require('./spend');
 const { build } = require('./compose');
+const compose3d = require('./compose3d');
+
+// limites do kind video3d (render 3D por SwiftShader e caro em CPU; ver README)
+const LIM3D = {
+  maxSeconds: Number(process.env.VIDEO3D_MAX_SECONDS || 45),
+  maxScenes: Number(process.env.VIDEO3D_MAX_SCENES || 6),
+  timeoutS: Number(process.env.VIDEO3D_RENDER_TIMEOUT_S || 2400),
+};
 
 const WORK = process.env.WORK_DIR || '/work';
 const URLS = {
@@ -88,6 +96,16 @@ function wordChunks(words, start, max = 4) {
   return out;
 }
 
+// video3d: legendas com o TEXTO do guiao e os tempos do STT (o STT so da o ritmo; nao reescreve o que se disse)
+function scriptWords(narration, words) {
+  const toks = String(narration || '').split(/\s+/).filter(Boolean);
+  if (!toks.length || !words.length) return words;
+  if (toks.length === words.length) return toks.map((w, i) => ({ w, start: words[i].start, end: words[i].end }));
+  const t0 = words[0].start, t1 = words[words.length - 1].end, tot = toks.reduce((n, w) => n + w.length + 1, 0);
+  let acc = 0;
+  return toks.map((w) => { const a = t0 + (acc / tot) * (t1 - t0); acc += w.length + 1; return { w, start: a, end: t0 + (acc / tot) * (t1 - t0) }; });
+}
+
 async function runMedia(job, step) {
   const spec = job.spec; const id = job.id; const dir = path.join(WORK, id);
   await fsp.mkdir(dir, { recursive: true });
@@ -111,29 +129,31 @@ async function runMedia(job, step) {
     throw new Error('kind=stt requer um ficheiro em /work (uso interno); usar kind=video com captions:"words"');
   }
 
-  // ---- video | presentation
-  const scenesIn = Array.isArray(spec.scenes) ? spec.scenes : [];
+  // ---- video | presentation | video3d
+  const is3d = kind === 'video3d';
+  const v3 = is3d ? compose3d.validate(spec, LIM3D) : null;   // valida presets/textos ANTES de gastar voz
+  const scenesIn = is3d ? v3.scenes : (Array.isArray(spec.scenes) ? spec.scenes : []);
   if (!scenesIn.length) throw new Error('spec.scenes vazio');
   const isPres = kind === 'presentation';
-  const format = spec.format || (isPres ? 'horizontal' : 'vertical');
+  const format = spec.format || (isPres || is3d ? 'horizontal' : 'vertical');
   const tail = 0.35; const lead = 0.25; const minDur = 2;
   const voiceClips = []; const scenes = []; const assets = []; let cursor = 0;
   const syntheticVoice = scenesIn.some((s) => s.narration);
 
   for (let i = 0; i < scenesIn.length; i++) {
-    const s = scenesIn[i]; let dur = Number(s.duration) || (isPres ? 5 : 4); let words = null;
+    const s = scenesIn[i]; let dur = Number(s.duration) || (isPres ? 5 : is3d ? 4.5 : 4); let words = null;
     if (s.narration) {
       await step(`tts scene ${i + 1}/${scenesIn.length}`);
       const r = await tts(s.narration, spec.voice, rel(`v${i}.wav`), ctx);
-      dur = Math.max(minDur, r.duration + lead + tail, Number(s.duration) || 0);
+      dur = Math.max(is3d ? 3.5 : minDur, r.duration + lead + tail, Number(s.duration) || 0); // 3D: tempo para a camara e a montagem
       voiceClips.push({ file: rel(`v${i}.wav`), at: r2(cursor + lead) });
-      if (spec.captions === 'words') {
+      if ((spec.captions || (is3d ? 'words' : null)) === 'words') {
         await step(`stt scene ${i + 1}`);
         words = (await call(URLS.stt, '/stt', { path: rel(`v${i}.wav`), language: (spec.voice && spec.voice.language_code) || 'pt' })).words;
       }
     }
     let image = null; let video = null;
-    if (s.stock) {
+    if (is3d) { /* video3d: sem stock nem imagens; o visual e 3D gerado */ } else if (s.stock) {
       await step(`pexels scene ${i + 1}`);
       const pk = await pexels.pick(s.stock, format);
       const ext = pk.kind === 'photo' ? 'jpg' : 'mp4';
@@ -156,11 +176,13 @@ async function runMedia(job, step) {
       const a = await fetchAsset(s.image, dir, `img${i}.${ext}`); image = a.name; if (a.credit) result.credits.push(a.credit);
     }
     const layout = s.layout || (isPres || (s.bullets && s.bullets.length) ? 'slide' : 'caption');
-    const sc = { start: cursor, duration: dur, layout, title: s.title, bullets: s.bullets, image, video, caption: s.caption ?? (layout === 'caption' ? s.narration : null) };
-    if (words && words.length) sc.chunks = wordChunks(words, cursor + lead);
+    const sc = is3d ? { start: cursor, duration: dur, preset: s.preset, text: s.text, subtitle: s.subtitle, layers: s.layers, color: s.color, title: s.title }
+      : { start: cursor, duration: dur, layout, title: s.title, bullets: s.bullets, image, video, caption: s.caption ?? (layout === 'caption' ? s.narration : null) };
+    if (words && words.length) sc.chunks = wordChunks(is3d ? scriptWords(s.narration, words) : words, cursor + lead);
     scenes.push(sc); cursor += dur;
   }
   const total = r2(cursor + 0.2);
+  if (is3d && total > LIM3D.maxSeconds) throw new Error(`video3d: duracao ${total} s acima do limite de ${LIM3D.maxSeconds} s (VIDEO3D_MAX_SECONDS)`);
 
   // musica + SFX (gratis, locais) e mistura
   let music = null; const sfxClips = [];
@@ -191,11 +213,21 @@ async function runMedia(job, step) {
   await step('compose');
   const badgeOn = spec.ai_badge !== false && (syntheticVoice || result.ai_generated.length);
   const badge = badgeOn ? (spec.ai_badge_text || 'Voz e musica geradas por IA') : null;
-  const { html } = build({ scenes, format, theme: spec.theme, audio: (voiceClips.length || music || sfxClips.length) ? 'mix.wav' : null, badge, total });
+  const audioRef = (voiceClips.length || music || sfxClips.length) ? 'mix.wav' : null;
+  const { html } = is3d
+    ? compose3d.build({ scenes, transitions: v3.transitions, format, audio: audioRef, badge, total })
+    : build({ scenes, format, theme: spec.theme, audio: audioRef, badge, total });
   await fsp.writeFile(path.join(dir, 'index.html'), html);
+  if (is3d) compose3d.writePresets(dir);
   await step('render');
-  const sub = await call(URLS.render, '/render', { dir: id, out: 'output.mp4', timeout_s: spec.timeout_s || 1800 });
-  let misses = 0; const t0 = Date.now(); const limit = (spec.timeout_s || 1800) * 1000 + 30000;
+  const timeoutS = is3d ? Math.min(Number(spec.timeout_s) || LIM3D.timeoutS, LIM3D.timeoutS) : (spec.timeout_s || 1800);
+  let sub;
+  for (let w = 0; ; w++) { // o worker aceita 1 render 3D de cada vez (429): esperar a vez, ate 30 min
+    try { sub = await call(URLS.render, '/render', { dir: id, out: 'output.mp4', timeout_s: timeoutS, kit: is3d }); break; }
+    catch (e) { if (!/-> 429/.test(e.message) || w > 360) throw e; if (w === 0) await step('render (a espera do worker 3D)'); await sleep(5000); }
+  }
+  await step('render');
+  let misses = 0; const t0 = Date.now(); const limit = timeoutS * 1000 + 30000;
   for (;;) {
     await sleep(2000);
     let st;
@@ -242,4 +274,4 @@ async function callback(job) {
     await sleep(2000 * 2 ** a);
   }
 }
-module.exports = { runMedia, deliver, callback, URLS };
+module.exports = { runMedia, deliver, callback, URLS, scriptWords };

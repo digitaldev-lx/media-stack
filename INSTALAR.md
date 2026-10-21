@@ -32,7 +32,7 @@ Nunca `cat .env`, nunca em logs/historico/chat, nunca commitar. O consumo da voz
 ## 5. Build, modelos, arranque
 ```bash
 cd /opt/media-stack
-docker compose build                                              # 5-15 min
+docker compose build                                              # 5-15 min (o render-hyperframes inclui o build do kit 3D; precisa de saida HTTPS para registry.npmjs.org e cdn.jsdelivr.net durante o build)
 docker compose --profile tools run --rm models piper_pt whisper_base   # ~0,25 GB para o volume
 docker compose up -d
 docker compose ps                                                  # todos "healthy" (gateway demora ~30 s)
@@ -53,6 +53,7 @@ set -a; . ./.env; set +a                                  # carrega MEDIA_HMAC_S
 curl -s http://$BIND_IP:8080/health                  # {"ok":true}
 scripts/smoke.sh scripts/example-reel-pt-local.json /tmp/teste-local.mp4 http://$BIND_IP:8080   # sem chaves, Piper
 scripts/smoke.sh scripts/example-reel-pt.json /tmp/teste-fal-pexels.mp4 http://$BIND_IP:8080   # voz Eleven v3 + Pexels
+KIND=video3d scripts/smoke.sh scripts/example-video3d.json /tmp/teste-3d.mp4 http://$BIND_IP:8080   # 3D (WebGL por SwiftShader): demora varios minutos
 ```
 O 2.o teste so passa com `FAL_KEY` e `PEXELS_API_KEY` validas. Deve imprimir `QA: True`, `fal_usd` > 0 e **sem** avisos de fallback. Se aparecer "voz fal indisponivel", reportar o texto do aviso (nao contem a chave).
 Para ouvir o sotaque: copiar o MP4 (`scp`) e reproduzir; validar a voz (`FAL_VOICE`) de ouvido.
@@ -73,6 +74,8 @@ docker compose restart gateway
 - [ ] `ss -tlnp | grep 8080` so mostra IP da VPN/127.0.0.1; nenhuma porta publica nova.
 - [ ] Pedido com assinatura invalida devolve 401: `curl -s -o /dev/null -w "%{http_code}\n" -X POST http://$BIND_IP:8080/v1/jobs -H 'content-type: application/json' -d '{}'`
 - [ ] `smoke.sh` local: `QA: True`, MP4 1080x1920 com audio.
+- [ ] `smoke.sh` 3D (`KIND=video3d`): `QA: True`, MP4 1920x1080 com audio; anotar o tempo de render para dimensionar `VIDEO3D_MAX_SECONDS`.
+- [ ] `docker compose exec render-hyperframes wget -q -O- http://127.0.0.1:3000/health` mostra `"kit":true`.
 - [ ] `smoke.sh` fal+Pexels: `QA: True`, `fal_usd` > 0, sem avisos de fallback; `assets.json` com fotografo/URL (ver `docker compose exec gateway ls /work`).
 - [ ] Repetir o mesmo pedido com a mesma `IDEMPOTENCY_KEY` devolve o mesmo `id` (`deduplicated`).
 - [ ] `.env` com permissoes 600 e fora de qualquer repo/backup; nenhum segredo em `docker compose logs`.

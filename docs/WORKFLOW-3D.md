@@ -62,6 +62,6 @@ whisper.cpp **por frase** (`-ml 1 -sow`), re-ancorado ao início da frase. Junta
   - Whisper sobre a mistura completa.
 
 ## Versões testadas
-- HyperFrames CLI 0.8.181. A imagem `render-hyperframes` do Compose fixa a 0.8.97; o kit não foi testado nessa versão.
+- HyperFrames CLI 0.8.181 no estúdio local. A imagem `render-hyperframes` do Compose fixa a 0.8.138 (a mais recente com pelo menos 2 semanas), e o kit foi testado também nessa versão, dentro do contentor (`tests/render/`).
 - three 0.186.1, postprocessing 6.39.5, troika-three-text 0.53.0, three-custom-shader-material 6.4.0, simplex-noise 4.0.3.
 - Kokoro 0.9.4, diffusers 0.35.2 com Stable Audio Open 1.0, whisper.cpp com large-v3-turbo q5_0.

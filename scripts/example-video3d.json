@@ -1,0 +1,12 @@
+{
+  "format": "horizontal",
+  "voice": { "provider": "local" },
+  "music": { "prompt": "tech", "volume": 0.25 },
+  "captions": "words",
+  "transitions": ["warp", "flash"],
+  "scenes": [
+    { "preset": "particles-text", "text": "</>", "title": "Tudo isto e codigo", "narration": "Tudo o que esta a ver foi gerado em codigo." },
+    { "preset": "glass-stack", "layers": ["Laravel", "Filas", "Render"], "narration": "Camada a camada, sem camara." },
+    { "preset": "neon-logo", "text": "media-stack", "subtitle": "render 3D na API", "narration": "Renderizado pela API." }
+  ]
+}

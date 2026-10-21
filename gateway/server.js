@@ -11,7 +11,7 @@ if (!process.env.MEDIA_HMAC_SECRET) { console.error('MEDIA_HMAC_SECRET em falta'
 const WORK = process.env.WORK_DIR || '/work';
 const MAX = Number(process.env.MAX_CONCURRENT_JOBS || 1);
 const TTL_MS = Number(process.env.JOB_TTL_HOURS || 48) * 3600 * 1000;
-const KINDS = new Set(['video', 'presentation', 'tts', 'music', 'sfx']);
+const KINDS = new Set(['video', 'presentation', 'video3d', 'tts', 'music', 'sfx']);
 
 const app = express();
 app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
