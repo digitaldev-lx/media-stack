@@ -7,6 +7,7 @@ COPY package.json ./
 RUN npm install --omit=dev && npm cache clean --force
 COPY server.js ./
 COPY lib ./lib
+COPY three ./three
 RUN mkdir -p /work /state /library && chown -R media:media /app /work /state
 USER media
 ENV WORK_DIR=/work STATE_DIR=/state LIBRARY_DIR=/library
