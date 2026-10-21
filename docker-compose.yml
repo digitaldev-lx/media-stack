@@ -33,6 +33,9 @@ services:
       FAL_MAX_USD_PER_DAY: ${FAL_MAX_USD_PER_DAY:-5}
       MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-1}
       JOB_TTL_HOURS: ${JOB_TTL_HOURS:-48}
+      VIDEO3D_MAX_SECONDS: ${VIDEO3D_MAX_SECONDS:-45}       # duracao maxima de um video3d
+      VIDEO3D_MAX_SCENES: ${VIDEO3D_MAX_SCENES:-6}
+      VIDEO3D_RENDER_TIMEOUT_S: ${VIDEO3D_RENDER_TIMEOUT_S:-2400}
     volumes:
       - work:/work
       - state:/state
@@ -43,11 +46,14 @@ services:
 
   render-hyperframes:
     <<: *base
-    build: ./render-hyperframes
+    build: { context: ., dockerfile: render-hyperframes/Dockerfile }   # contexto na raiz: inclui o kit 3D
     image: media-render-hyperframes:1
     shm_size: 2gb
     cpus: ${RENDER_CPUS:-4}
     mem_limit: ${RENDER_MEM:-6g}
+    environment:
+      RENDER_3D_WORKERS: ${RENDER_3D_WORKERS:-2}          # workers Chromium por render 3D (SwiftShader: ~1 vCPU e ~1 GB cada)
+      RENDER_3D_MAX_ACTIVE: ${RENDER_3D_MAX_ACTIVE:-1}    # renders 3D em simultaneo (os outros esperam a vez)
     volumes: [ "work:/work" ]
 
   tts-local:
