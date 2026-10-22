@@ -37,6 +37,9 @@ JOBS = {
     "piper_pt": lambda: piper("pt/pt_PT/tugão/medium", "pt_PT-tugão-medium", "pt_PT-tugao-medium"),
     "whisper_base": lambda: hf_snapshot("Systran/faster-whisper-base", M / "whisper" / "base"),
     "whisper_small": lambda: hf_snapshot("Systran/faster-whisper-small", M / "whisper" / "small"),
+    # Qwen3-TTS (Apache-2.0), modo clone para a voz fixa (tts-qwen). 0.6B ~2,5 GB (CPU); 1.7B ~4,5 GB (GPU ou CPU lento)
+    "qwen_tts_06b": lambda: hf_snapshot("Qwen/Qwen3-TTS-12Hz-0.6B-Base", M / "qwen" / "Qwen3-TTS-12Hz-0.6B-Base"),
+    "qwen_tts_17b": lambda: hf_snapshot("Qwen/Qwen3-TTS-12Hz-1.7B-Base", M / "qwen" / "Qwen3-TTS-12Hz-1.7B-Base"),
 }
 
 if __name__ == "__main__":

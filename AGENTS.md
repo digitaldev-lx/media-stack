@@ -32,6 +32,11 @@ O repositório tem duas partes:
 - Música: Stable Audio Open (Community License: comercial abaixo de 1 M USD por ano) ou procedural.
 - **Nunca o MusicGen para material publicável** (pesos CC-BY-NC).
 
+### Voz fixa
+- `TTS_PROVIDER=qwen` com `DEFAULT_VOICE=<id>` dá sempre a mesma voz: voice pack + Qwen3-TTS em clone.
+- Os voice packs são activos pessoais. **Nunca** entram no repo, nem `ref.wav`, nem `prompt-*.pt`, nem amostras geradas.
+- Clonar só com consentimento da pessoa.
+
 ### Voz e guião
 - Uma ideia por frase.
 - Validar os nomes próprios com o Whisper sobre a **mistura completa**.

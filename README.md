@@ -41,6 +41,7 @@ Geracao de **videos** (Reels/Shorts 9:16, 16:9, quadrado) e **apresentacoes** a 
 | `gateway` | API, HMAC, idempotencia, estado em ficheiros (`/state`), pipeline, callback assinado, QA, tectos de custo da voz |
 | `render-hyperframes` | HTML + GSAP -> MP4 (HyperFrames 0.8.138, Chromium, FFmpeg); inclui o kit 3D `hf3d` (three.js) e WebGL por SwiftShader para o kind `video3d` |
 | `tts-local` | Piper `pt_PT-tugao-medium` (fallback gratuito, CPU) |
+| `tts-qwen` (perfil `qwen`) | **voz fixa**: Qwen3-TTS (Apache-2.0) em modo clone a partir de um voice pack montado só de leitura (`TTS_PROVIDER=qwen`, `DEFAULT_VOICE`). Se falhar, cai no Piper. Ver [local-audio/README.md](local-audio/README.md#voz-fixa-voice-pack--qwen3-tts) |
 | `music-gen`, `sfx-gen` | musica de fundo e efeitos procedurais (numpy, CPU, sem modelos) |
 | `stt-whisper` | legendas palavra-a-palavra (faster-whisper `base`, CPU) |
 | `mixer` | mistura (ducking, loudnorm -14 LUFS), normaliza clips de fundo, QA pos-render |
@@ -167,6 +168,13 @@ Pela API, de ponta a ponta (voz Piper, STT, música, mistura, render 3D e QA), o
 - Por omissao `TTS_PROVIDER=fal` chama `fal-ai/elevenlabs/tts/eleven-v3` com `language_code=pt` e a voz `FAL_VOICE`. **O v3 em portugues pode tender para sotaque brasileiro**: escolha uma voz PT-PT da biblioteca ElevenLabs e valide de ouvido.
 - Se a chamada falhar, nao houver saldo, faltar a chave, ou os tectos `FAL_MAX_USD_PER_JOB`/`_PER_DAY` forem excedidos, o gateway usa **Piper `pt_PT-tugao-medium`** (local, gratis) e regista o motivo em `result.warnings`. O gasto fica em `result.fal_usd` e no ficheiro de estado diario.
 - O custo e **estimado** (`FAL_TTS_USD_PER_1K_CHARS`); confirme o preco real no fal.ai. Recomenda-se uma chave fal dedicada a este servico.
+
+## Voz fixa: Qwen3-TTS + voice pack (perfil `qwen`)
+- **Objectivo:** todos os vídeos com a mesma voz, sem escolher voz por pedido. Com `TTS_PROVIDER=qwen`, o gateway chama o `tts-qwen`, que clona sempre o mesmo voice pack (`DEFAULT_VOICE`) com semente fixa. O pedido só pode mudar a língua (`voice.language_code`).
+- **O pack** (`ref.wav` de 10–20 s, `ref.txt` exacto e `params.json`) vive fora do repo, em `VOICE_PACKS_HOST_DIR`, e é montado só de leitura. Modelos: `docker compose --profile tools run --rm models qwen_tts_06b` (~2,5 GB).
+- **Arranque:** `docker compose --profile qwen up -d`.
+- **Velocidade em CPU (0.6B):** cerca de 5 a 6 vezes o tempo real (uma frase de 3 s leva ~15–20 s).
+- **Consentimento:** clonar uma voz exige autorização da pessoa. O selo "voz gerada por IA" mantém-se.
 
 ## Stock Pexels
 Cada cena pode ter `stock: {query, type}`. O gateway pesquisa na API Pexels, filtra termos bloqueados (proveniencia sensivel; ver `gateway/lib/policy.js`), descarrega, normaliza os videos (30 fps, GOP fechado, tamanho exacto) e guarda a **atribuicao** (autor, URL, id) em `/work/<id>/assets.json` e em `result.credits`. A licenca Pexels permite uso comercial e nao exige atribuicao, mas deve respeitar os [termos](https://www.pexels.com/license/) (nao vender o conteudo sem alteracao, nao sugerir endosso por pessoas retratadas, respeitar marcas e retratos). Imagens/videos proprios entram por `image`/`video_src` com `library:<ficheiro>` (a biblioteca montada em `/library` precisa de `manifest.json` com `commercial_ok: true` por ficheiro) ou por URL de um host em `ASSET_ALLOWED_HOSTS`.

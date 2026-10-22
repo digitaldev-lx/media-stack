@@ -21,6 +21,7 @@ const URLS = {
   tts: process.env.TTS_URL || 'http://tts-local:8000', music: process.env.MUSIC_URL || 'http://music-gen:8000',
   sfx: process.env.SFX_URL || 'http://sfx-gen:8000', stt: process.env.STT_URL || 'http://stt-whisper:8000',
   mixer: process.env.MIXER_URL || 'http://mixer:8000', render: process.env.RENDER_URL || 'http://render-hyperframes:3000',
+  qwen: process.env.QWEN_TTS_URL || 'http://tts-qwen:8000',
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -54,9 +55,22 @@ async function ttsLocal(text, voice, out) {
   return call(URLS.tts, '/tts', { text, engine: 'piper',
     voice: (voice && voice.local_voice) || process.env.TTS_VOICE || 'pt_PT-tugao-medium', speed: (voice && voice.speed) || 1.0, out });
 }
+// voz fixa (voice pack) no tts-qwen: o pedido NAO escolhe a voz; so a lingua (pt por omissao)
+async function ttsQwen(text, voice, out) {
+  const r = await call(URLS.qwen, '/tts', { text, out, language: (voice && voice.language_code) || 'pt' }, 900000);
+  return { path: out, duration: r.duration, engine: 'qwen', voice: r.voice };
+}
 // ctx = { spent, warnings }: gasto fal do pedido e avisos (fallback, tectos)
 async function tts(text, voice, out, ctx) {
   const provider = (voice && voice.provider) || process.env.TTS_PROVIDER || 'local';
+  if (provider === 'qwen') {
+    try { return await ttsQwen(text, voice, out); } catch (e) {
+      if ((process.env.TTS_FALLBACK || 'local') !== 'local') throw e;
+      ctx.warnings.push(`voz fixa (tts-qwen) indisponivel, usado Piper local: ${String(e.message).slice(0, 200)}`);
+      ctx.fell_back = true;
+      return ttsLocal(text, voice, out);
+    }
+  }
   if (provider !== 'fal') return ttsLocal(text, voice, out);
   const fallback = (process.env.TTS_FALLBACK || 'local') === 'local';
   const chk = spend.check(text.length, ctx.spent);

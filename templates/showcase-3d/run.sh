@@ -2,19 +2,29 @@
 # Pipeline completo: guiao -> voz -> musica -> batidas -> timeline -> palavras -> mistura -> composicao -> render -> QA.
 # Variaveis (ver README):
 #   PY_KOKORO      python do venv Kokoro           (ex.: ../../.venvs/kokoro/bin/python)
+#   PY_QWEN        python do venv Qwen3-TTS        (so com "engine": "qwen" no script.json; voz = "voice_pack" ou DEFAULT_VOICE)
 #   PY_AUDIO       python do venv audio            (ex.: ../../.venvs/audio/bin/python)
 #   WHISPER_MODEL  caminho do ggml-*.bin do whisper.cpp
 #   STEP           corre so a partir deste passo (voice|music|layout|words|mix|build|render|qa)
 set -e
 cd "$(dirname "$0")"
 ROOT=$(cd ../.. && pwd); LA="$ROOT/local-audio"; KIT="$ROOT/packages/three-kit"; export LA
-: "${PY_KOKORO:?definir PY_KOKORO}"; : "${PY_AUDIO:?definir PY_AUDIO}"; : "${WHISPER_MODEL:?definir WHISPER_MODEL}"
+: "${PY_KOKORO:=}"; : "${PY_AUDIO:?definir PY_AUDIO}"; : "${WHISPER_MODEL:?definir WHISPER_MODEL}"
 STEP=${STEP:-voice}
 order="voice music layout words mix build render qa"
 run=0; for s in $order; do [ "$s" = "$STEP" ] && run=1; eval "do_$s=$run"; done
 mkdir -p audio/music assets/fonts renders
 
-[ "$do_voice" = 1 ] && "$PY_KOKORO" "$LA/tts_kokoro.py" audio/script.json audio/vo
+if [ "$do_voice" = 1 ]; then
+  ENGINE=$(python3 -c "import json;print(json.load(open('audio/script.json')).get('engine','kokoro'))")
+  if [ "$ENGINE" = qwen ]; then   # voz fixa: voice pack (ver local-audio/README.md, "Voz fixa")
+    : "${PY_QWEN:?definir PY_QWEN (python do venv qwen)}"
+    VP=$(python3 -c "import json,os;print(json.load(open('audio/script.json')).get('voice_pack') or os.environ.get('DEFAULT_VOICE',''))")
+    "$PY_QWEN" "$LA/tts_qwen.py" --voice "$VP" --script audio/script.json --outdir audio/vo
+  else
+    "$PY_KOKORO" "$LA/tts_kokoro.py" audio/script.json audio/vo
+  fi
+fi
 if [ "$do_music" = 1 ]; then
   "$PY_AUDIO" - <<'EOF'
 import json, os, subprocess, sys

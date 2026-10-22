@@ -1,0 +1,5 @@
+# tts-qwen: Qwen3-TTS (Apache-2.0) em CPU. Versoes fixas (>= 2 semanas).
+qwen-tts==0.1.1
+torch==2.8.0
+torchaudio==2.8.0
+soundfile==0.13.1

@@ -32,6 +32,7 @@ services:
       FAL_MAX_USD_PER_JOB: ${FAL_MAX_USD_PER_JOB:-0.5}
       FAL_MAX_USD_PER_DAY: ${FAL_MAX_USD_PER_DAY:-5}
       MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-1}
+      QWEN_TTS_URL: ${QWEN_TTS_URL:-http://tts-qwen:8000}
       JOB_TTL_HOURS: ${JOB_TTL_HOURS:-48}
       VIDEO3D_MAX_SECONDS: ${VIDEO3D_MAX_SECONDS:-45}       # duracao maxima de um video3d
       VIDEO3D_MAX_SCENES: ${VIDEO3D_MAX_SCENES:-6}
@@ -63,6 +64,25 @@ services:
     cpus: 2
     mem_limit: 2g
     volumes: [ "work:/work", "models:/models:ro" ]
+
+  # Voz fixa (voice pack) com Qwen3-TTS em CPU. Opcional: docker compose --profile qwen up -d
+  # e TTS_PROVIDER=qwen no .env. O pack vive FORA do repo (VOICE_PACKS_HOST_DIR) e e montado so de leitura.
+  tts-qwen:
+    <<: *base
+    build: { context: ., dockerfile: tts-qwen/Dockerfile }
+    image: media-tts-qwen:1
+    profiles: ["qwen"]
+    cpus: ${QWEN_CPUS:-4}
+    mem_limit: ${QWEN_MEM:-6g}
+    environment:
+      DEFAULT_VOICE: ${DEFAULT_VOICE:-}     # id do voice pack (pasta em VOICE_PACKS_HOST_DIR); obrigatorio com este perfil
+      QWEN_MODEL: ${QWEN_MODEL:-/models/qwen/Qwen3-TTS-12Hz-0.6B-Base}
+      QWEN_THREADS: ${QWEN_THREADS:-4}
+    volumes:
+      - work:/work
+      - models:/models:ro
+      - qwen_cache:/cache
+      - ${VOICE_PACKS_HOST_DIR:-./voices}:/voices:ro
 
   music-gen:
     <<: *base
@@ -109,6 +129,7 @@ networks:
   media_net: {}
 
 volumes:
+  qwen_cache: {}
   work: {}
   state: {}
   models: {}
